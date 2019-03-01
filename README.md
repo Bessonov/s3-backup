@@ -4,9 +4,14 @@ Basic tools for backuping to s3
 [![Project is](https://img.shields.io/badge/Project%20is-fantastic-ff69b4.svg)](https://github.com/Bessonov/s3-backup)
 [![License](http://img.shields.io/:license-MIT-blue.svg)](https://raw.githubusercontent.com/Bessonov/s3-backup/master/LICENSE)
 
+In most cases you can stream to s3 and don't need temp files!
+
+It's intended for usage with kubernetes, but you can use it with docker too. Get current version of image from [Docker Hub](https://hub.docker.com/r/bessonov/s3-backup/tags). Although there is `latest` version of image, only versioned versions should be used.
+
 ## Table of Contents
 - [Backup mongodb compatible database](#backup-mongodb-compatible-database)
 - [Backup mysql compatible database](#backup-mysql-compatible-database)
+- [Backup files and usage with docker](#backup-files-and-usage-with-docker)
 - [Expiration of old backups](#expiration-of-old-backups)
 - [Symmetric encryption of backups](#symmetric-encryption-of-backups)
 
@@ -129,6 +134,14 @@ spec:
                   secretKeyRef:
                     name: mariadb-aws-backup
                     key: AWS_DEFAULT_REGION
+```
+
+## Backup files and usage with docker
+
+You can backup also files. For example backup *.env files with crontab and docker:
+
+```
+0 3 * * * docker run --rm --env-file=/root/backup-secret.env -v /backup/folder:/data:ro -u root bessonov/s3-backup:version sh -c 'time find /data -maxdepth 1 -name "*.env" | tar -cvz --files-from - | openssl enc -aes128 -pbkdf2 -pass pass:"$BACKUP_PASS" | aws s3 cp - s3://your-bucket/path/backup-env-files.gz'
 ```
 
 ## Expiration of old backups
