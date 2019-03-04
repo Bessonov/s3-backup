@@ -4,7 +4,18 @@ Basic tools for backuping to s3
 [![Project is](https://img.shields.io/badge/Project%20is-fantastic-ff69b4.svg)](https://github.com/Bessonov/s3-backup)
 [![License](http://img.shields.io/:license-MIT-blue.svg)](https://raw.githubusercontent.com/Bessonov/s3-backup/master/LICENSE)
 
-Currently support backups for mongodb and mysql compatible databases like mariadb.
+In most cases you can stream to s3 and don't need temp files!
+
+It's intended for usage with kubernetes, but you can use it with docker too. Get current version of image from [Docker Hub](https://hub.docker.com/r/bessonov/s3-backup/tags). Although there is `latest` version of image, only versioned versions should be used.
+
+## Table of Contents
+- [Backup mongodb compatible database](#backup-mongodb-compatible-database)
+- [Backup mysql compatible database](#backup-mysql-compatible-database)
+- [Backup files and usage with docker](#backup-files-and-usage-with-docker)
+- [Expiration of old backups](#expiration-of-old-backups)
+- [Symmetric encryption of backups](#symmetric-encryption-of-backups)
+
+## Backup mongodb compatible database
 
 Example usage for mongodb:
 
@@ -52,6 +63,8 @@ spec:
                     name: mongodb-aws-backup
                     key: AWS_DEFAULT_REGION
 ```
+
+## Backup mysql compatible database
 
 Example usage for mariadb/mysql:
 
@@ -123,6 +136,16 @@ spec:
                     key: AWS_DEFAULT_REGION
 ```
 
+## Backup files and usage with docker
+
+You can backup also files. For example backup *.env files with crontab and docker:
+
+```
+0 3 * * * docker run --rm --env-file=/root/backup-secret.env -v /backup/folder:/data:ro -u root bessonov/s3-backup:version sh -c 'time find /data -maxdepth 1 -name "*.env" | tar -cvz --files-from - | openssl enc -aes128 -pbkdf2 -pass pass:"$BACKUP_PASS" | aws s3 cp - s3://your-bucket/path/backup-env-files.gz'
+```
+
+## Expiration of old backups
+
 A possible CloudFormation definition with expiration of old backups could be:
 ```
 Resources:
@@ -142,6 +165,18 @@ Resources:
           - NoncurrentVersionExpirationInDays: 14
             Status: Enabled
 ```
+
+## Symmetric encryption of backups
+
+Image includes openssl for encryption or certificate validation. Example usage:
+
+```
+mongodump --uri=$MONGODB_URI --archive --gzip | openssl enc -aes128 -pbkdf2 -pass pass:"$SECRET" | aws s3 cp - s3://your-bucket/path/file.gz
+```
+
+Be aware, that `$SECRET` is leaked through `ps` and other tools if it's done this way. PR's for better way and for asymmetric encryption are welcome.
+
+To decrypt use `openssl enc -d -aes128 -pbkdf2 -pass pass:"$SECRET"`.
 
 License
 -------
